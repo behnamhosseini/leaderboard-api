@@ -1,6 +1,6 @@
 <?php
 
-namespace GameLadder\srs\Config;
+namespace GameLadder\Config;
 
 use Dotenv\Dotenv;
 

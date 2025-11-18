@@ -1,6 +1,6 @@
 <?php
 
-namespace GameLadder\Tests\Integration;
+namespace Tests\Integration;
 
 use GameLadder\Config\Config;
 use GameLadder\Factory\ServiceFactory;

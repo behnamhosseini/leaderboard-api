@@ -1,6 +1,6 @@
 <?php
 
-namespace GameLadder\srs\Model;
+namespace GameLadder\Model;
 
 class Player
 {
