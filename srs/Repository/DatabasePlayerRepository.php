@@ -7,9 +7,7 @@ use PDO;
 
 class DatabasePlayerRepository implements PlayerRepositoryInterface
 {
-    public function __construct(private PDO $pdo)
-    {
-    }
+    public function __construct(private PDO $pdo) {}
 
     public function save(Player $player): void
     {
