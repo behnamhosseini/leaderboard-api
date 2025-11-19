@@ -40,10 +40,14 @@ class DatabasePlayerRepository implements PlayerRepositoryInterface
     {
         $sql = 'SELECT player_id, score FROM players ORDER BY score DESC';
         if ($limit !== null) {
-            $sql .= ' LIMIT ' . (int)$limit;
+            $sql .= ' LIMIT :limit';
+            $stmt = $this->pdo->prepare($sql);
+            $stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
+            $stmt->execute();
+        } else {
+            $stmt = $this->pdo->query($sql);
         }
 
-        $stmt = $this->pdo->query($sql);
         $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
         $players = [];
