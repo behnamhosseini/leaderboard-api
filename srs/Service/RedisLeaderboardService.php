@@ -14,30 +14,30 @@ class RedisLeaderboardService implements LeaderboardServiceInterface
 
     public function updatePlayerScore(string $playerId, int $score): void
     {
-        $this->redis->zadd(self::LEADERBOARD_KEY, $score, $playerId);
+        $this->redis->eval(
+            file_get_contents(__DIR__ . '/../../scripts/update_score.lua'),
+            1,
+            self::LEADERBOARD_KEY,
+            $playerId,
+            $score,
+            time()
+        );
         $player = new Player($playerId, $score);
         $this->playerRepository->save($player);
     }
 
     public function getTopPlayers(int $limit): array
     {
-        $topPlayerIds = $this->redis->zrevrange(self::LEADERBOARD_KEY, 0, $limit - 1, true);
+        $raw = $this->redis->zrevrange(self::LEADERBOARD_KEY, 0, $limit - 1, ['withscores' => true]);
 
         $players = [];
         $rank = 1;
 
-        foreach ($topPlayerIds as $playerId => $score) {
-            $player = $this->playerRepository->findById($playerId);
-            if (!$player) {
-                $player = new Player($playerId, (int)$score);
-            }
-            $player->setScore((int)$score);
-            $player->setRank($rank);
-            $players[] = $player;
-            $rank++;
-        }
-
-        return $players;
+        foreach ($raw as $playerId => $compositeScore) {
+                $score = (int) floor($compositeScore);
+                $players[] = new Player($playerId, $score, $rank++);
+       }
+       return $players;
     }
 
     public function getPlayerRank(string $playerId): ?Player
