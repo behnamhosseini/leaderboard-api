@@ -1,6 +1,6 @@
 <?php
 
-namespace Tests\Unit\Model;
+namespace GameLadder\Tests\Unit\Model;
 
 use GameLadder\Model\Player;
 use PHPUnit\Framework\TestCase;

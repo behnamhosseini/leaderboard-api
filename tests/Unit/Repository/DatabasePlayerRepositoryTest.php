@@ -1,6 +1,6 @@
 <?php
 
-namespace Tests\Unit\Repository;
+namespace GameLadder\Tests\Unit\Repository;
 
 use GameLadder\Model\Player;
 use GameLadder\Repository\DatabasePlayerRepository;

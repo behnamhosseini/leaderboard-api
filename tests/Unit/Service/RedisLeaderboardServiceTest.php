@@ -1,6 +1,6 @@
 <?php
 
-namespace Tests\Unit\Service;
+namespace GameLadder\Tests\Unit\Service;
 
 use GameLadder\Model\Player;
 use GameLadder\Repository\PlayerRepositoryInterface;
