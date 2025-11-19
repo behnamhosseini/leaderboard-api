@@ -34,7 +34,7 @@ docker compose exec app composer install
 
 ## API Endpoints
 
-See [API.md](API.md) for detailed documentation.
+See [web/API.md](web/API.md) for detailed documentation.
 
 - `POST /api/players/{playerId}/score` - Update player score
 - `GET /api/leaderboard/top?limit=N` - Get top N players
