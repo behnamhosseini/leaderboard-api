@@ -23,7 +23,7 @@ High-performance leaderboard service for online games built with PHP, Redis, and
 # Clone and setup
 git clone <repository-url>
 cd leaderboard-api
-cp web/.env.example web/.env
+cp .env.example .env
 
 # Start services (PHP-FPM + Nginx)
 docker compose up -d
@@ -55,8 +55,8 @@ docker compose exec app composer test-coverage
 docker compose exec app composer analyse
 
 # Load testing with K6
-docker compose run --rm k6 run /scripts/requirements_test.js  # 1000 VU test
-docker compose run --rm k6 run /scripts/load_test.js          # Stress test (100-1000 VU)
+docker compose run --rm k6 run /scripts/100_updates_in_1_sec_test.js  # 100 concurrent updates test
+docker compose run --rm k6 run /scripts/max_updates_per_second_test.js  # Maximum throughput test
 ```
 
 ## Performance
@@ -64,8 +64,25 @@ docker compose run --rm k6 run /scripts/load_test.js          # Stress test (100
 - **Update Score**: O(log N)
 - **Get Top N**: O(log N + M)
 - **Get Rank**: O(log N)
-- **Response times**: <100ms (P95)
-- **Throughput**: 100+ updates/second
+
+### Load Test Results
+
+**100 Updates in 1 Second Test:**
+- Status: ✅ PASS
+- Requests handled: 100/100
+- Completion time: < 0.3 seconds
+- Average latency: 104ms
+- P95 latency: 134ms
+- Maximum latency: 135ms
+- Success rate: 100%
+
+**Maximum Throughput Test (100 concurrent VUs):**
+- Requests handled: 937 in 1 second
+- Throughput: 937 updates/second
+- Average latency: 124ms
+- P95 latency: 297ms
+- Maximum latency: 419ms
+- Success rate: 100%
 
 ## Architecture
 
