@@ -11,7 +11,7 @@ export let options = {
     },
 };
 
-const BASE_URL = __ENV.BASE_URL || 'http://localhost:8000';
+const BASE_URL = __ENV.BASE_URL || 'http://app:8000';
 
 export default function () {
     let playerId = `player_${Math.floor(Math.random() * 10000) + 1}`;

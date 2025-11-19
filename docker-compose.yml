@@ -42,7 +42,26 @@ services:
       - mysql_data:/var/lib/mysql
       - ./database/schema.sql:/docker-entrypoint-initdb.d/schema.sql
 
+  k6:
+    image: grafana/k6:latest
+    container_name: leaderboard-k6
+    volumes:
+      - ./tests/k6:/scripts
+    networks:
+      - default
+    environment:
+      - BASE_URL=http://app:8000
+    depends_on:
+      - app
+    # Note: Use 'docker compose run --rm k6 run /scripts/...' to execute tests
+    # Default command is just to keep container ready
+    command: version
+
 volumes:
   redis_data:
   mysql_data:
+
+networks:
+  default:
+    name: leaderboard-api_default
 

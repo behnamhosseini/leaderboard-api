@@ -20,7 +20,7 @@ export let options = {
     },
 };
 
-const BASE_URL = __ENV.BASE_URL || 'http://localhost:8000';
+const BASE_URL = __ENV.BASE_URL || 'http://app:8000';
 const PLAYER_COUNT = 10000;
 
 export default function () {

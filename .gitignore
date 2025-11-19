@@ -8,3 +8,4 @@
 .env
 .phpunit.cache/
 coverage/
+tests/k6/report.html

@@ -184,6 +184,8 @@ This script:
 
 ### Performance Test
 
+#### Using PHP Script
+
 Test the system's ability to handle 100+ updates per second:
 
 ```bash
@@ -195,6 +197,27 @@ This script:
 - Performs 150 updates/second for 5 seconds
 - Tests query performance (getTopPlayers, getPlayerRank)
 - Verifies response times are under 100ms
+
+#### Using K6 Load Testing
+
+For more comprehensive load testing with K6:
+
+```bash
+# Run requirements test (1000 concurrent users for 1.5 minutes)
+docker compose run --rm k6 run /scripts/requirements_test.js
+
+# Run full load test (scales from 100 to 1000 users)
+docker compose run --rm k6 run /scripts/load_test.js
+
+# Run with custom base URL
+docker compose run --rm -e BASE_URL=http://app:8000 k6 run /scripts/load_test.js
+```
+
+K6 tests verify:
+- Response times < 100ms (P95)
+- Real-time rank updates
+- System stability under high load
+- Error rates < 1%
 
 ## Performance
 
