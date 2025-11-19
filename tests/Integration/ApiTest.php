@@ -6,12 +6,14 @@ use GameLadder\Config\Config;
 use GameLadder\Factory\ServiceFactory;
 use GameLadder\Service\LeaderboardServiceInterface;
 use PHPUnit\Framework\TestCase;
+use PDO;
 use Predis\Client;
 
 class ApiTest extends TestCase
 {
     private LeaderboardServiceInterface $service;
     private Client $redis;
+    private PDO $pdo;
 
     protected function setUp(): void
     {
@@ -23,11 +25,26 @@ class ApiTest extends TestCase
         ]);
 
         $this->redis->flushdb();
+        
+        $dsn = sprintf(
+            'mysql:host=%s;port=%s;dbname=%s;charset=utf8mb4',
+            Config::get('DB_HOST', '127.0.0.1'),
+            Config::get('DB_PORT', '3306'),
+            Config::get('DB_NAME', 'leaderboard_db')
+        );
+        $this->pdo = new PDO(
+            $dsn,
+            Config::get('DB_USER', 'root'),
+            Config::get('DB_PASS', 'root'),
+            [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]
+        );
+        $this->pdo->exec('TRUNCATE TABLE players');
     }
 
     protected function tearDown(): void
     {
         $this->redis->flushdb();
+        $this->pdo->exec('TRUNCATE TABLE players');
     }
 
     public function testUpdateAndGetPlayerScore(): void

@@ -34,6 +34,7 @@ class DatabasePlayerRepositoryTest extends TestCase
             ->with([
                 'player_id' => 'player1',
                 'score' => 100,
+                'score_update' => 100,
             ]);
 
         $this->repository->save($player);

@@ -29,8 +29,10 @@ class RedisRecoveryService
     {
         try {
             $lockValue = uniqid('', true);
+            // Predis set command with options: set(key, value, 'EX', seconds, 'NX')
+            // Returns Status object with payload "OK" on success, null if NX condition fails (key exists)
             $acquired = $this->redis->set(self::LOCK_KEY, $lockValue, 'EX', self::LOCK_TTL, 'NX');
-            return $acquired === true || $acquired === 'OK';
+            return $acquired !== null;
         } catch (\Exception $e) {
             $this->logger->error("Failed to acquire recovery lock", ['exception' => $e->getMessage()]);
             return false;
