@@ -6,6 +6,7 @@ use GameLadder\Config\Config;
 use GameLadder\Repository\DatabasePlayerRepository;
 use GameLadder\Repository\PlayerRepositoryInterface;
 use GameLadder\Service\LeaderboardServiceInterface;
+use GameLadder\Service\LoggerService;
 use GameLadder\Service\RedisLeaderboardService;
 use GameLadder\Service\RedisRecoveryService;
 use PDO;
@@ -33,7 +34,8 @@ class ServiceFactory
     {
         return new RedisRecoveryService(
             self::getRedisClient(),
-            self::createPlayerRepository()
+            self::createPlayerRepository(),
+            LoggerService::getLogger()
         );
     }
 

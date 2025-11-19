@@ -7,6 +7,7 @@ use GameLadder\Repository\PlayerRepositoryInterface;
 use Predis\ClientInterface;
 use Predis\Connection\ConnectionException;
 use Predis\Response\ServerException;
+use Psr\Log\LoggerInterface;
 use RuntimeException;
 
 class RedisRecoveryService
@@ -15,7 +16,11 @@ class RedisRecoveryService
     private const LOCK_KEY = 'leaderboard:recovery:lock';
     private const LOCK_TTL = 300; // 5 minutes
 
-    public function __construct(private ClientInterface $redis, private PlayerRepositoryInterface $playerRepository){}
+    public function __construct(
+        private ClientInterface $redis,
+        private PlayerRepositoryInterface $playerRepository,
+        private LoggerInterface $logger
+    ) {}
 
     /**
      * Acquire lock for recovery operation
@@ -27,7 +32,7 @@ class RedisRecoveryService
             $acquired = $this->redis->set(self::LOCK_KEY, $lockValue, 'EX', self::LOCK_TTL, 'NX');
             return $acquired === true || $acquired === 'OK';
         } catch (\Exception $e) {
-            error_log("Failed to acquire recovery lock: " . $e->getMessage());
+            $this->logger->error("Failed to acquire recovery lock", ['exception' => $e->getMessage()]);
             return false;
         }
     }
@@ -40,7 +45,7 @@ class RedisRecoveryService
         try {
             $this->redis->del(self::LOCK_KEY);
         } catch (\Exception $e) {
-            error_log("Failed to release recovery lock: " . $e->getMessage());
+            $this->logger->error("Failed to release recovery lock", ['exception' => $e->getMessage()]);
         }
     }
 
@@ -51,7 +56,7 @@ class RedisRecoveryService
     public function rebuildLeaderboardFromDatabase(): int
     {
         if (!$this->acquireLock()) {
-            error_log("Recovery already in progress, skipping rebuild");
+            $this->logger->warning("Recovery already in progress, skipping rebuild");
             return 0;
         }
 
@@ -68,7 +73,11 @@ class RedisRecoveryService
                 $pipeline->zadd(self::LEADERBOARD_KEY, $player->getScore(), $player->getPlayerId());
             }
             $pipeline->execute();
-            return count($players);
+            
+            $count = count($players);
+            $this->logger->info("Rebuilt leaderboard from database", ['players_count' => $count]);
+            
+            return $count;
         } finally {
             $this->releaseLock();
         }
@@ -96,7 +105,7 @@ class RedisRecoveryService
     public function syncToDatabase(): int
     {
         if (!$this->acquireLock()) {
-            error_log("Sync already in progress, skipping");
+            $this->logger->warning("Sync already in progress, skipping");
             return 0;
         }
 
@@ -104,10 +113,10 @@ class RedisRecoveryService
             try {
                 $raw = $this->redis->zrange(self::LEADERBOARD_KEY, 0, -1, ['withscores' => true]);
             } catch (ConnectionException $e) {
-                error_log("Redis connection error during sync: " . $e->getMessage());
+                $this->logger->error("Redis connection error during sync", ['exception' => $e->getMessage()]);
                 return 0;
             } catch (ServerException $e) {
-                error_log("Redis server error during sync: " . $e->getMessage());
+                $this->logger->error("Redis server error during sync", ['exception' => $e->getMessage()]);
                 return 0;
             }
 
@@ -123,10 +132,17 @@ class RedisRecoveryService
                     $this->playerRepository->save($player);
                     $synced++;
                 } catch (\PDOException $e) {
-                    error_log("Failed to sync player {$playerId} to database: " . $e->getMessage());
+                    $this->logger->error("Failed to sync player to database", [
+                        'player_id' => $playerId,
+                        'exception' => $e->getMessage()
+                    ]);
                 }
             }
 
+            if ($synced > 0) {
+                $this->logger->info("Synced players to database", ['synced_count' => $synced]);
+            }
+            
             return $synced;
         } finally {
             $this->releaseLock();

@@ -2,6 +2,7 @@
 
 use GameLadder\Config\Config;
 use GameLadder\Factory\ServiceFactory;
+use GameLadder\Service\LoggerService;
 use Psr\Http\Message\ResponseInterface as Response;
 use Psr\Http\Message\ServerRequestInterface as Request;
 use Slim\Factory\AppFactory;
@@ -18,7 +19,6 @@ if (!$recoveryInitialized) {
 
     if ($recovery->needsRecovery()) {
         $count = $recovery->rebuildLeaderboardFromDatabase();
-        error_log("Redis recovery: Rebuilt leaderboard with {$count} players from MySQL");
     }
 }
 
@@ -34,6 +34,7 @@ $app->add(function ($req, $handler) {
 });
 
 $service = ServiceFactory::createLeaderboardService();
+$logger = LoggerService::getLogger();
 
 $badRequest = function (Response $r, $msg): Response {
     $r->getBody()->write(json_encode(['error' => $msg]));
@@ -55,7 +56,7 @@ $validatePlayerId = function (string $id): bool {
 };
 
 
-$app->post('/api/players/{playerId}/score', function (Request $req, Response $res, $args) use ($service, $validatePlayerId, $badRequest, $serverError, $ok) {
+$app->post('/api/players/{playerId}/score', function (Request $req, Response $res, $args) use ($service, $validatePlayerId, $badRequest, $serverError, $ok, $logger) {
     try {
         $playerId = trim($args['playerId'] ?? '');
 
@@ -81,12 +82,12 @@ $app->post('/api/players/{playerId}/score', function (Request $req, Response $re
             'score' => $score,
         ]);
     } catch (\RuntimeException $e) {
-        error_log("Error updating player score: " . $e->getMessage());
+        $logger->error("Error updating player score", ['exception' => $e->getMessage()]);
         return $serverError($res, 'Internal server error');
     }
 });
 
-$app->get('/api/leaderboard/top', function (Request $req, Response $res) use ($service, $serverError, $ok) {
+$app->get('/api/leaderboard/top', function (Request $req, Response $res) use ($service, $serverError, $ok, $logger) {
     try {
         $limit = max(1, min((int)($req->getQueryParams()['limit'] ?? 10), 1000));
         $players = array_map(fn($p) => $p->toArray(), $service->getTopPlayers($limit));
@@ -96,12 +97,12 @@ $app->get('/api/leaderboard/top', function (Request $req, Response $res) use ($s
             'total' => count($players),
         ]);
     } catch (\RuntimeException $e) {
-        error_log("Error fetching top players: " . $e->getMessage());
+        $logger->error("Error fetching top players", ['exception' => $e->getMessage()]);
         return $serverError($res, 'Internal server error');
     }
 });
 
-$app->get('/api/players/{playerId}/rank', function (Request $req, Response $res, $args) use ($service, $validatePlayerId, $badRequest, $serverError, $ok) {
+$app->get('/api/players/{playerId}/rank', function (Request $req, Response $res, $args) use ($service, $validatePlayerId, $badRequest, $serverError, $ok, $logger) {
     try {
         $playerId = trim($args['playerId'] ?? '');
 
@@ -117,16 +118,16 @@ $app->get('/api/players/{playerId}/rank', function (Request $req, Response $res,
 
         return $ok($res, $player->toArray());
     } catch (\RuntimeException $e) {
-        error_log("Error fetching player rank: " . $e->getMessage());
+        $logger->error("Error fetching player rank", ['exception' => $e->getMessage()]);
         return $serverError($res, 'Internal server error');
     }
 });
 
-$app->get('/api/leaderboard/count', function (Request $req, Response $res) use ($service, $serverError, $ok) {
+$app->get('/api/leaderboard/count', function (Request $req, Response $res) use ($service, $serverError, $ok, $logger) {
     try {
         return $ok($res, ['total_players' => $service->getTotalPlayers()]);
     } catch (\RuntimeException $e) {
-        error_log("Error fetching total players: " . $e->getMessage());
+        $logger->error("Error fetching total players", ['exception' => $e->getMessage()]);
         return $serverError($res, 'Internal server error');
     }
 });
