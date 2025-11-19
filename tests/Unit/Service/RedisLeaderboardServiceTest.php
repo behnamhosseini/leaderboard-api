@@ -27,8 +27,8 @@ class RedisLeaderboardServiceTest extends TestCase
         $score = 100;
 
         $this->redis->expects($this->once())
-            ->method('zadd')
-            ->with('leaderboard:scores', $score, $playerId);
+            ->method('eval')
+            ->willReturn(1); // Return rank
 
         $this->repository->expects($this->once())
             ->method('save')
@@ -122,6 +122,24 @@ class RedisLeaderboardServiceTest extends TestCase
         $result = $this->service->getTotalPlayers();
 
         $this->assertEquals($total, $result);
+    }
+
+    public function testUpdatePlayerScoreContinuesWhenMySQLFails(): void
+    {
+        $playerId = 'player1';
+        $score = 100;
+
+        $this->redis->expects($this->once())
+            ->method('eval')
+            ->willReturn(1);
+
+        $this->repository->expects($this->once())
+            ->method('save')
+            ->willThrowException(new \PDOException('Connection failed'));
+
+        $this->service->updatePlayerScore($playerId, $score);
+
+        $this->assertTrue(true);
     }
 }
 

@@ -21,7 +21,8 @@ class ServiceFactory
     {
         return new RedisLeaderboardService(
             self::getRedisClient(),
-            self::createPlayerRepository()
+            self::createPlayerRepository(),
+            LoggerService::getLogger()
         );
     }
 

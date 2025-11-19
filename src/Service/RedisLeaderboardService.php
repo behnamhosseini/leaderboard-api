@@ -7,6 +7,7 @@ use GameLadder\Repository\PlayerRepositoryInterface;
 use Predis\ClientInterface;
 use Predis\Connection\ConnectionException;
 use Predis\Response\ServerException;
+use Psr\Log\LoggerInterface;
 use RuntimeException;
 
 class RedisLeaderboardService implements LeaderboardServiceInterface
@@ -14,7 +15,11 @@ class RedisLeaderboardService implements LeaderboardServiceInterface
     private const LEADERBOARD_KEY = 'leaderboard:scores';
     private static ?string $luaScript = null;
 
-    public function __construct(private ClientInterface $redis, private PlayerRepositoryInterface $playerRepository) {}
+    public function __construct(
+        private ClientInterface $redis,
+        private PlayerRepositoryInterface $playerRepository,
+        private ?LoggerInterface $logger = null
+    ) {}
 
     private function getLuaScript(): string
     {
@@ -34,12 +39,11 @@ class RedisLeaderboardService implements LeaderboardServiceInterface
 
     public function updatePlayerScore(string $playerId, int $score): void
     {
-        // Only update Redis (fast path)
-        // MySQL will be synced periodically via syncToDatabase method
+        // Step 1: Update Redis (fast path, blocking)
         try {
             $this->redis->eval(
                 $this->getLuaScript(),
-                1,
+                2,
                 self::LEADERBOARD_KEY,
                 $playerId,
                 $score,
@@ -49,6 +53,27 @@ class RedisLeaderboardService implements LeaderboardServiceInterface
             throw new RuntimeException("Redis connection error: " . $e->getMessage(), 0, $e);
         } catch (ServerException $e) {
             throw new RuntimeException("Redis server error: " . $e->getMessage(), 0, $e);
+        }
+
+        try {
+            $player = new Player($playerId, $score);
+            $this->playerRepository->save($player);
+        } catch (\PDOException $e) {
+            if ($this->logger) {
+                $this->logger->warning("Failed to save player to MySQL (non-blocking)", [
+                    'player_id' => $playerId,
+                    'score' => $score,
+                    'exception' => $e->getMessage()
+                ]);
+            }
+        } catch (RuntimeException $e) {
+            if ($this->logger) {
+                $this->logger->warning("Failed to save player to MySQL (non-blocking)", [
+                    'player_id' => $playerId,
+                    'score' => $score,
+                    'exception' => $e->getMessage()
+                ]);
+            }
         }
     }
 
