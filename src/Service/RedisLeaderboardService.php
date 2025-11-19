@@ -9,13 +9,22 @@ use Predis\ClientInterface;
 class RedisLeaderboardService implements LeaderboardServiceInterface
 {
     private const LEADERBOARD_KEY = 'leaderboard:scores';
+    private static ?string $luaScript = null;
 
     public function __construct(private ClientInterface $redis, private PlayerRepositoryInterface $playerRepository) {}
+
+    private function getLuaScript(): string
+    {
+        if (self::$luaScript === null) {
+            self::$luaScript = file_get_contents(__DIR__ . '/../../scripts/update_score.lua');
+        }
+        return self::$luaScript;
+    }
 
     public function updatePlayerScore(string $playerId, int $score): void
     {
         $this->redis->eval(
-            file_get_contents(__DIR__ . '/../../scripts/update_score.lua'),
+            $this->getLuaScript(),
             1,
             self::LEADERBOARD_KEY,
             $playerId,

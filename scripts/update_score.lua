@@ -7,6 +7,5 @@ local tie_breaker = 9999999999999 - ts
 local composite = score + tie_breaker / 10000000000000
 
 redis.call('ZADD', key, composite, member)
-redis.call('XADD', 'score_events', '*', 'player_id', member, 'score', score)
 
 return redis.call('ZREVRANK', key, member) + 1
