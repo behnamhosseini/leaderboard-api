@@ -5,6 +5,9 @@ namespace GameLadder\Service;
 use GameLadder\Model\Player;
 use GameLadder\Repository\PlayerRepositoryInterface;
 use Predis\ClientInterface;
+use Predis\Connection\ConnectionException;
+use Predis\Response\ServerException;
+use RuntimeException;
 
 class RedisLeaderboardService implements LeaderboardServiceInterface
 {
@@ -16,51 +19,88 @@ class RedisLeaderboardService implements LeaderboardServiceInterface
     private function getLuaScript(): string
     {
         if (self::$luaScript === null) {
-            self::$luaScript = file_get_contents(__DIR__ . '/../../scripts/update_score.lua');
+            $scriptPath = __DIR__ . '/../../scripts/update_score.lua';
+            if (!file_exists($scriptPath)) {
+                throw new RuntimeException("Lua script not found: {$scriptPath}");
+            }
+            $script = file_get_contents($scriptPath);
+            if ($script === false) {
+                throw new RuntimeException("Failed to read Lua script: {$scriptPath}");
+            }
+            self::$luaScript = $script;
         }
         return self::$luaScript;
     }
 
     public function updatePlayerScore(string $playerId, int $score): void
     {
-        $this->redis->eval(
-            $this->getLuaScript(),
-            1,
-            self::LEADERBOARD_KEY,
-            $playerId,
-            $score,
-            time()
-        );
-        $player = new Player($playerId, $score);
-        $this->playerRepository->save($player);
+        try {
+            $this->redis->eval(
+                $this->getLuaScript(),
+                1,
+                self::LEADERBOARD_KEY,
+                $playerId,
+                $score,
+                time()
+            );
+        } catch (ConnectionException $e) {
+            throw new RuntimeException("Redis connection error: " . $e->getMessage(), 0, $e);
+        } catch (ServerException $e) {
+            throw new RuntimeException("Redis server error: " . $e->getMessage(), 0, $e);
+        }
+
+        try {
+            $player = new Player($playerId, $score);
+            $this->playerRepository->save($player);
+        } catch (\PDOException $e) {
+            throw new RuntimeException("Database error while saving player: " . $e->getMessage(), 0, $e);
+        }
     }
 
     public function getTopPlayers(int $limit): array
     {
-        $raw = $this->redis->zrevrange(self::LEADERBOARD_KEY, 0, $limit - 1, ['withscores' => true]);
+        try {
+            $raw = $this->redis->zrevrange(self::LEADERBOARD_KEY, 0, $limit - 1, ['withscores' => true]);
+        } catch (ConnectionException $e) {
+            throw new RuntimeException("Redis connection error: " . $e->getMessage(), 0, $e);
+        } catch (ServerException $e) {
+            throw new RuntimeException("Redis server error: " . $e->getMessage(), 0, $e);
+        }
 
         $players = [];
         $rank = 1;
 
         foreach ($raw as $playerId => $compositeScore) {
-                $score = (int) floor($compositeScore);
-                $players[] = new Player($playerId, $score, $rank++);
-       }
-       return $players;
+            $score = (int) floor($compositeScore);
+            $players[] = new Player($playerId, $score, $rank++);
+        }
+        return $players;
     }
 
     public function getPlayerRank(string $playerId): ?Player
     {
-        $score = $this->redis->zscore(self::LEADERBOARD_KEY, $playerId);
-        if ($score === null) {
-            return null;
+        try {
+            $score = $this->redis->zscore(self::LEADERBOARD_KEY, $playerId);
+            if ($score === null) {
+                return null;
+            }
+            $rank = $this->redis->zrevrank(self::LEADERBOARD_KEY, $playerId);
+        } catch (ConnectionException $e) {
+            throw new RuntimeException("Redis connection error: " . $e->getMessage(), 0, $e);
+        } catch (ServerException $e) {
+            throw new RuntimeException("Redis server error: " . $e->getMessage(), 0, $e);
         }
-        $rank = $this->redis->zrevrank(self::LEADERBOARD_KEY, $playerId);
         
         if ($rank === null) {
             return null;
         }
-        $player = $this->playerRepository->findById($playerId);
+
+        try {
+            $player = $this->playerRepository->findById($playerId);
+        } catch (\PDOException $e) {
+            throw new RuntimeException("Database error while fetching player: " . $e->getMessage(), 0, $e);
+        }
+
         if (!$player) {
             $player = new Player($playerId, (int)$score);
         }
@@ -73,7 +113,13 @@ class RedisLeaderboardService implements LeaderboardServiceInterface
 
     public function getTotalPlayers(): int
     {
-        return $this->redis->zcard(self::LEADERBOARD_KEY);
+        try {
+            return $this->redis->zcard(self::LEADERBOARD_KEY);
+        } catch (ConnectionException $e) {
+            throw new RuntimeException("Redis connection error: " . $e->getMessage(), 0, $e);
+        } catch (ServerException $e) {
+            throw new RuntimeException("Redis server error: " . $e->getMessage(), 0, $e);
+        }
     }
 }
 
