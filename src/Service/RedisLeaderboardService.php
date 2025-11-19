@@ -77,6 +77,58 @@ class RedisLeaderboardService implements LeaderboardServiceInterface
         }
     }
 
+    public function updatePlayerScoresBatch(array $updates): void
+    {
+        if (empty($updates)) {
+            return;
+        }
+
+        $timestamp = time();
+        $luaScript = $this->getLuaScript();
+
+        try {
+            $pipeline = $this->redis->pipeline();
+            foreach ($updates as $playerId => $score) {
+                $pipeline->eval(
+                    $luaScript,
+                    2,
+                    self::LEADERBOARD_KEY,
+                    $playerId,
+                    $score,
+                    $timestamp
+                );
+            }
+            $pipeline->execute();
+        } catch (ConnectionException $e) {
+            throw new RuntimeException("Redis connection error: " . $e->getMessage(), 0, $e);
+        } catch (ServerException $e) {
+            throw new RuntimeException("Redis server error: " . $e->getMessage(), 0, $e);
+        }
+
+        foreach ($updates as $playerId => $score) {
+            try {
+                $player = new Player($playerId, $score);
+                $this->playerRepository->save($player);
+            } catch (\PDOException $e) {
+                if ($this->logger) {
+                    $this->logger->warning("Failed to save player to MySQL (batch, non-blocking)", [
+                        'player_id' => $playerId,
+                        'score' => $score,
+                        'exception' => $e->getMessage()
+                    ]);
+                }
+            } catch (RuntimeException $e) {
+                if ($this->logger) {
+                    $this->logger->warning("Failed to save player to MySQL (batch, non-blocking)", [
+                        'player_id' => $playerId,
+                        'score' => $score,
+                        'exception' => $e->getMessage()
+                    ]);
+                }
+            }
+        }
+    }
+
     public function getTopPlayers(int $limit): array
     {
         try {

@@ -126,5 +126,57 @@ class ApiTest extends TestCase
             );
         }
     }
+
+    public function testBatchUpdatePlayerScores(): void
+    {
+        $updates = [
+            'player1' => 1000,
+            'player2' => 2000,
+            'player3' => 1500,
+            'player4' => 1800,
+        ];
+
+        $this->service->updatePlayerScoresBatch($updates);
+
+        $this->assertEquals(4, $this->service->getTotalPlayers());
+
+        // Verify all players have correct scores
+        foreach ($updates as $playerId => $expectedScore) {
+            $player = $this->service->getPlayerRank($playerId);
+            $this->assertNotNull($player);
+            $this->assertEquals($expectedScore, $player->getScore());
+        }
+
+        // Verify rankings are correct
+        $topPlayers = $this->service->getTopPlayers(4);
+        $this->assertCount(4, $topPlayers);
+        $this->assertEquals('player2', $topPlayers[0]->getPlayerId());
+        $this->assertEquals(2000, $topPlayers[0]->getScore());
+        $this->assertEquals(1, $topPlayers[0]->getRank());
+    }
+
+    public function testBatchUpdateWithManyPlayers(): void
+    {
+        $updates = [];
+        for ($i = 1; $i <= 100; $i++) {
+            $updates["player{$i}"] = rand(100, 10000);
+        }
+
+        $this->service->updatePlayerScoresBatch($updates);
+
+        $this->assertEquals(100, $this->service->getTotalPlayers());
+
+        // Verify rankings are in descending order
+        $topPlayers = $this->service->getTopPlayers(100);
+        $this->assertCount(100, $topPlayers);
+
+        for ($i = 0; $i < count($topPlayers) - 1; $i++) {
+            $this->assertGreaterThanOrEqual(
+                $topPlayers[$i + 1]->getScore(),
+                $topPlayers[$i]->getScore(),
+                "Rankings must be in descending order"
+            );
+        }
+    }
 }
 

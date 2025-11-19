@@ -49,7 +49,69 @@ curl -X POST http://localhost:8000/api/players/alice/score \
 
 ---
 
-### 2. Get Top Players
+### 2. Batch Update Player Scores
+
+Updates multiple players' scores in a single request.
+
+**Endpoint:** `POST /api/players/batch`
+
+**Request Body:**
+```json
+{
+  "updates": [
+    {"player_id": "player1", "score": 1000},
+    {"player_id": "player2", "score": 2000},
+    {"player_id": "player3", "score": 1500}
+  ]
+}
+```
+
+**Response (200 OK):**
+```json
+{
+  "message": "Batch update completed successfully",
+  "updated_count": 3,
+  "updates": [
+    {"player_id": "player1", "score": 1000},
+    {"player_id": "player2", "score": 2000},
+    {"player_id": "player3", "score": 1500}
+  ]
+}
+```
+
+**Error Response (400 Bad Request):**
+```json
+{
+  "error": "Validation errors: Update at index 0: invalid player_id; Update at index 1: score must be >= 0"
+}
+```
+
+**Limitations:**
+- Maximum batch size: 1000 updates per request
+- All updates are processed atomically in Redis
+- MySQL updates are non-blocking (best-effort)
+
+**Example:**
+```bash
+curl -X POST http://localhost:8000/api/players/batch \
+  -H "Content-Type: application/json" \
+  -d '{
+    "updates": [
+      {"player_id": "alice", "score": 1500},
+      {"player_id": "bob", "score": 2000},
+      {"player_id": "charlie", "score": 1200}
+    ]
+  }'
+```
+
+**Performance:**
+- Uses Redis pipeline for efficient batch operations
+- Response time: ~10-50ms per update (e.g., 10 updates = ~100-500ms total)
+- Much more efficient than multiple individual requests
+
+---
+
+### 3. Get Top Players
 
 Retrieves the top N players from the leaderboard.
 
@@ -89,7 +151,7 @@ curl http://localhost:8000/api/leaderboard/top?limit=10
 
 ---
 
-### 3. Get Player Rank
+### 4. Get Player Rank
 
 Retrieves a specific player's current rank and score.
 
@@ -121,7 +183,7 @@ curl http://localhost:8000/api/players/alice/rank
 
 ---
 
-### 4. Get Total Players Count
+### 5. Get Total Players Count
 
 Returns the total number of players in the leaderboard.
 

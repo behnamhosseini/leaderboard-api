@@ -12,6 +12,12 @@ interface LeaderboardServiceInterface
     public function updatePlayerScore(string $playerId, int $score): void;
 
     /**
+     * Update multiple players' scores in a single operation
+     * @param array<string, int> $updates Array of player_id => score
+     */
+    public function updatePlayerScoresBatch(array $updates): void;
+
+    /**
      * Get top N players
      * @return Player[]
      */

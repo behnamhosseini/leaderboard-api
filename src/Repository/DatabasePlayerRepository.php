@@ -17,12 +17,13 @@ class DatabasePlayerRepository implements PlayerRepositoryInterface
             $stmt = $this->pdo->prepare(
                 'INSERT INTO players (player_id, score, updated_at) 
                  VALUES (:player_id, :score, NOW())
-                 ON DUPLICATE KEY UPDATE score = :score, updated_at = NOW()'
+                 ON DUPLICATE KEY UPDATE score = :score_update, updated_at = NOW()'
             );
 
             $stmt->execute([
                 'player_id' => $player->getPlayerId(),
                 'score' => $player->getScore(),
+                'score_update' => $player->getScore(),
             ]);
         } catch (PDOException $e) {
             throw new RuntimeException("Failed to save player: " . $e->getMessage(), 0, $e);

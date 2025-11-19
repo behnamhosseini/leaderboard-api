@@ -87,6 +87,74 @@ $app->post('/api/players/{playerId}/score', function (Request $req, Response $re
     }
 });
 
+$app->post('/api/players/batch', function (Request $req, Response $res) use ($service, $validatePlayerId, $badRequest, $serverError, $ok, $logger) {
+    try {
+        $data = json_decode((string)$req->getBody(), true);
+        
+        if (!is_array($data) || !isset($data['updates']) || !is_array($data['updates'])) {
+            return $badRequest($res, 'Invalid request body. Expected: {"updates": [{"player_id": "...", "score": ...}, ...]}');
+        }
+
+        $updates = [];
+        $errors = [];
+
+        foreach ($data['updates'] as $index => $update) {
+            if (!is_array($update) || !isset($update['player_id']) || !isset($update['score'])) {
+                $errors[] = "Update at index {$index}: missing player_id or score";
+                continue;
+            }
+
+            $playerId = trim($update['player_id']);
+            if (!$validatePlayerId($playerId)) {
+                $errors[] = "Update at index {$index}: invalid player_id";
+                continue;
+            }
+
+            if (!is_numeric($update['score'])) {
+                $errors[] = "Update at index {$index}: score must be a number";
+                continue;
+            }
+
+            $score = (int)$update['score'];
+            if ($score < 0) {
+                $errors[] = "Update at index {$index}: score must be >= 0";
+                continue;
+            }
+
+            $updates[$playerId] = $score;
+        }
+
+        if (!empty($errors)) {
+            return $badRequest($res, 'Validation errors: ' . implode('; ', $errors));
+        }
+
+        if (empty($updates)) {
+            return $badRequest($res, 'No valid updates provided');
+        }
+
+        // Limit batch size to prevent abuse
+        if (count($updates) > 1000) {
+            return $badRequest($res, 'Batch size exceeds maximum of 1000 updates');
+        }
+
+        $service->updatePlayerScoresBatch($updates);
+
+        $updatesArray = [];
+        foreach ($updates as $playerId => $score) {
+            $updatesArray[] = ['player_id' => $playerId, 'score' => $score];
+        }
+
+        return $ok($res, [
+            'message' => 'Batch update completed successfully',
+            'updated_count' => count($updates),
+            'updates' => $updatesArray,
+        ]);
+    } catch (\RuntimeException $e) {
+        $logger->error("Error updating player scores batch", ['exception' => $e->getMessage()]);
+        return $serverError($res, 'Internal server error');
+    }
+});
+
 $app->get('/api/leaderboard/top', function (Request $req, Response $res) use ($service, $serverError, $ok, $logger) {
     try {
         $limit = max(1, min((int)($req->getQueryParams()['limit'] ?? 10), 1000));
