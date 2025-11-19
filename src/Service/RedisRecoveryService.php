@@ -2,14 +2,18 @@
 
 namespace GameLadder\Service;
 
+use GameLadder\Model\Player;
 use GameLadder\Repository\PlayerRepositoryInterface;
 use Predis\ClientInterface;
+use Predis\Connection\ConnectionException;
+use Predis\Response\ServerException;
+use RuntimeException;
 
 class RedisRecoveryService
 {
     private const LEADERBOARD_KEY = 'leaderboard:scores';
 
-    public function __construct(private ClientInterface           $redis, private PlayerRepositoryInterface $playerRepository){}
+    public function __construct(private ClientInterface $redis, private PlayerRepositoryInterface $playerRepository){}
 
     /**
      * Rebuild Redis leaderboard from MySQL database
@@ -45,6 +49,41 @@ class RedisRecoveryService
         }
 
         return false;
+    }
+
+    /**
+     * Sync all players from Redis to MySQL
+     * This should be called periodically (e.g., every 30 seconds) to persist Redis data
+     */
+    public function syncToDatabase(): int
+    {
+        try {
+            $raw = $this->redis->zrange(self::LEADERBOARD_KEY, 0, -1, ['withscores' => true]);
+        } catch (ConnectionException $e) {
+            error_log("Redis connection error during sync: " . $e->getMessage());
+            return 0;
+        } catch (ServerException $e) {
+            error_log("Redis server error during sync: " . $e->getMessage());
+            return 0;
+        }
+
+        if (empty($raw)) {
+            return 0;
+        }
+
+        $synced = 0;
+        foreach ($raw as $playerId => $compositeScore) {
+            try {
+                $score = (int) floor($compositeScore);
+                $player = new Player($playerId, $score);
+                $this->playerRepository->save($player);
+                $synced++;
+            } catch (\PDOException $e) {
+                error_log("Failed to sync player {$playerId} to database: " . $e->getMessage());
+            }
+        }
+
+        return $synced;
     }
 }
 

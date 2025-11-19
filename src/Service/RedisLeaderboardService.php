@@ -34,13 +34,8 @@ class RedisLeaderboardService implements LeaderboardServiceInterface
 
     public function updatePlayerScore(string $playerId, int $score): void
     {
-        try {
-            $player = new Player($playerId, $score);
-            $this->playerRepository->save($player);
-        } catch (\PDOException $e) {
-            throw new RuntimeException("Database error while saving player: " . $e->getMessage(), 0, $e);
-        }
-
+        // Only update Redis (fast path)
+        // MySQL will be synced periodically via syncToDatabase method
         try {
             $this->redis->eval(
                 $this->getLuaScript(),
@@ -51,10 +46,8 @@ class RedisLeaderboardService implements LeaderboardServiceInterface
                 time()
             );
         } catch (ConnectionException $e) {
-            error_log("Redis connection error after MySQL save: " . $e->getMessage());
             throw new RuntimeException("Redis connection error: " . $e->getMessage(), 0, $e);
         } catch (ServerException $e) {
-            error_log("Redis server error after MySQL save: " . $e->getMessage());
             throw new RuntimeException("Redis server error: " . $e->getMessage(), 0, $e);
         }
     }
