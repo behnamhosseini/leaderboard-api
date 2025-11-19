@@ -1,4 +1,4 @@
-FROM php:8.3-cli
+FROM php:8.3-fpm
 
 
 RUN apt-get update && apt-get install -y \
@@ -22,9 +22,14 @@ COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 WORKDIR /var/www
 COPY composer.json composer.lock* ./
 
-RUN composer install --no-dev --optimize-autoloader
-COPY . .
-EXPOSE 8000
+RUN composer install --optimize-autoloader
 
-CMD ["php", "-S", "0.0.0.0:8000", "-t", "public"]
+# Copy PHP-FPM pool configuration for high performance (before copying all files)
+COPY php-fpm-pool.conf /usr/local/etc/php-fpm.d/www.conf
+
+COPY . .
+
+EXPOSE 9000
+
+CMD ["php-fpm"]
 
