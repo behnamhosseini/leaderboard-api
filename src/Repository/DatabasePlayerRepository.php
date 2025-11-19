@@ -4,6 +4,8 @@ namespace GameLadder\Repository;
 
 use GameLadder\Model\Player;
 use PDO;
+use PDOException;
+use RuntimeException;
 
 class DatabasePlayerRepository implements PlayerRepositoryInterface
 {
@@ -11,23 +13,31 @@ class DatabasePlayerRepository implements PlayerRepositoryInterface
 
     public function save(Player $player): void
     {
-        $stmt = $this->pdo->prepare(
-            'INSERT INTO players (player_id, score, updated_at) 
-             VALUES (:player_id, :score, NOW())
-             ON DUPLICATE KEY UPDATE score = :score, updated_at = NOW()'
-        );
+        try {
+            $stmt = $this->pdo->prepare(
+                'INSERT INTO players (player_id, score, updated_at) 
+                 VALUES (:player_id, :score, NOW())
+                 ON DUPLICATE KEY UPDATE score = :score, updated_at = NOW()'
+            );
 
-        $stmt->execute([
-            'player_id' => $player->getPlayerId(),
-            'score' => $player->getScore(),
-        ]);
+            $stmt->execute([
+                'player_id' => $player->getPlayerId(),
+                'score' => $player->getScore(),
+            ]);
+        } catch (PDOException $e) {
+            throw new RuntimeException("Failed to save player: " . $e->getMessage(), 0, $e);
+        }
     }
 
     public function findById(string $playerId): ?Player
     {
-        $stmt = $this->pdo->prepare('SELECT player_id, score FROM players WHERE player_id = :player_id');
-        $stmt->execute(['player_id' => $playerId]);
-        $data = $stmt->fetch(PDO::FETCH_ASSOC);
+        try {
+            $stmt = $this->pdo->prepare('SELECT player_id, score FROM players WHERE player_id = :player_id');
+            $stmt->execute(['player_id' => $playerId]);
+            $data = $stmt->fetch(PDO::FETCH_ASSOC);
+        } catch (PDOException $e) {
+            throw new RuntimeException("Failed to find player: " . $e->getMessage(), 0, $e);
+        }
 
         if (!$data) {
             return null;
@@ -38,17 +48,21 @@ class DatabasePlayerRepository implements PlayerRepositoryInterface
 
     public function findAllOrderedByScore(int $limit = null): array
     {
-        $sql = 'SELECT player_id, score FROM players ORDER BY score DESC';
-        if ($limit !== null) {
-            $sql .= ' LIMIT :limit';
-            $stmt = $this->pdo->prepare($sql);
-            $stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
-            $stmt->execute();
-        } else {
-            $stmt = $this->pdo->query($sql);
-        }
+        try {
+            $sql = 'SELECT player_id, score FROM players ORDER BY score DESC';
+            if ($limit !== null) {
+                $sql .= ' LIMIT :limit';
+                $stmt = $this->pdo->prepare($sql);
+                $stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
+                $stmt->execute();
+            } else {
+                $stmt = $this->pdo->query($sql);
+            }
 
-        $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        } catch (PDOException $e) {
+            throw new RuntimeException("Failed to fetch players: " . $e->getMessage(), 0, $e);
+        }
 
         $players = [];
         foreach ($results as $data) {
