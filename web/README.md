@@ -23,7 +23,7 @@ High-performance leaderboard service for online games built with PHP, Redis, and
 # Clone and setup
 git clone <repository-url>
 cd leaderboard-api
-cp .env.example .env
+cp web/.env.example web/.env
 
 # Start services (PHP-FPM + Nginx)
 docker compose up -d

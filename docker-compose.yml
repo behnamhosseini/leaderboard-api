@@ -1,14 +1,16 @@
 services:
   app:
-    build: .
+    build:
+      context: .
+      dockerfile: Docker/php/Dockerfile
     container_name: leaderboard-app
     volumes:
-      - .:/var/www
+      - ./web:/var/www/web
     depends_on:
       - redis
       - mysql
     env_file:
-      - .env
+      - web/.env
     environment:
       - REDIS_HOST=${REDIS_HOST:-redis}
       - REDIS_PORT=${REDIS_PORT:-6379}
@@ -27,8 +29,8 @@ services:
     ports:
       - "8000:80"
     volumes:
-      - .:/var/www:ro
-      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./web:/var/www/web:ro
+      - ./Docker/nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
     depends_on:
       - app
     networks:
@@ -41,7 +43,8 @@ services:
       - "${REDIS_PORT:-6379}:6379"
     volumes:
       - redis_data:/data
-    command: redis-server --appendonly yes --appendfsync everysec
+      - ./Docker/redis/redis.conf:/usr/local/etc/redis/redis.conf:ro
+    command: redis-server /usr/local/etc/redis/redis.conf
 
   mysql:
     image: mysql:8.0
@@ -53,13 +56,13 @@ services:
       - MYSQL_DATABASE=${DB_NAME:-leaderboard_db}
     volumes:
       - mysql_data:/var/lib/mysql
-      - ./database/schema.sql:/docker-entrypoint-initdb.d/schema.sql
+      - ./web/database/schema.sql:/docker-entrypoint-initdb.d/schema.sql
 
   k6:
     image: grafana/k6:latest
     container_name: leaderboard-k6
     volumes:
-      - ./tests/k6:/scripts
+      - ./web/tests/k6:/scripts
     networks:
       - default
     environment:

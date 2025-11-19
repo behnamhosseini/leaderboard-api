@@ -1,0 +1,7 @@
+vendor/
+composer.lock
+logs
+.env
+.phpunit.cache/
+coverage/
+tests/k6/report.html

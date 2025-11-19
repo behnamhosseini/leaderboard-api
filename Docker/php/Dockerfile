@@ -16,18 +16,18 @@ RUN pecl install redis && docker-php-ext-enable redis
 # Install PCOV for code coverage (faster than Xdebug)
 RUN pecl install pcov && docker-php-ext-enable pcov && \
     echo "pcov.enabled=1" >> /usr/local/etc/php/conf.d/docker-php-ext-pcov.ini && \
-    echo "pcov.directory=/var/www/src" >> /usr/local/etc/php/conf.d/docker-php-ext-pcov.ini
+    echo "pcov.directory=/var/www/web/src" >> /usr/local/etc/php/conf.d/docker-php-ext-pcov.ini
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
-WORKDIR /var/www
-COPY composer.json composer.lock* ./
+WORKDIR /var/www/web
+COPY web/composer.json web/composer.lock* ./
 
 RUN composer install --optimize-autoloader
 
 # Copy PHP-FPM pool configuration for high performance (before copying all files)
-COPY php-fpm-pool.conf /usr/local/etc/php-fpm.d/www.conf
+COPY Docker/php/php-fpm-pool.conf /usr/local/etc/php-fpm.d/www.conf
 
-COPY . .
+COPY web/ .
 
 EXPOSE 9000
 
