@@ -2,7 +2,6 @@
 
 use GameLadder\Config\Config;
 use GameLadder\Factory\ServiceFactory;
-use GameLadder\Service\RedisRecoveryService;
 use Psr\Http\Message\ResponseInterface as Response;
 use Psr\Http\Message\ServerRequestInterface as Request;
 use Slim\Factory\AppFactory;
@@ -11,11 +10,15 @@ require_once __DIR__ . '/../vendor/autoload.php';
 
 Config::load();
 
-// Recover Redis from MySQL on startup if needed
-$recoveryService = ServiceFactory::createRecoveryService();
-if ($recoveryService->needsRecovery()) {
-    $recoveredCount = $recoveryService->rebuildLeaderboardFromDatabase();
-    error_log("Redis recovery: Rebuilt leaderboard with {$recoveredCount} players from MySQL");
+// Recover Redis from MySQL on startup if needed (only once per process)
+static $recoveryInitialized = false;
+if (!$recoveryInitialized) {
+    $recoveryInitialized = true;
+    $recoveryService = ServiceFactory::createRecoveryService();
+    if ($recoveryService->needsRecovery()) {
+        $recoveredCount = $recoveryService->rebuildLeaderboardFromDatabase();
+        error_log("Redis recovery: Rebuilt leaderboard with {$recoveredCount} players from MySQL");
+    }
 }
 
 $app = AppFactory::create();
